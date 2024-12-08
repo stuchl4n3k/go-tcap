@@ -409,11 +409,15 @@ func (d *DialoguePDU) UnmarshalBinary(b []byte) error {
 func (d *DialoguePDU) parseAARQFromBytes(b []byte) error {
 	var err error
 	var offset = 2
-	d.ProtocolVersion, err = ParseIE(b[offset:])
-	if err != nil {
-		return err
+
+	if b[offset] == 0x80 {
+		// Protocol version is optional.
+		d.ProtocolVersion, err = ParseIE(b[offset:])
+		if err != nil {
+			return err
+		}
+		offset += d.ProtocolVersion.MarshalLen()
 	}
-	offset += d.ProtocolVersion.MarshalLen()
 
 	d.ApplicationContextName, err = ParseIE(b[offset:])
 	if err != nil {
