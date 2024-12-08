@@ -7,6 +7,7 @@ package tcap
 import (
 	"encoding/binary"
 	"fmt"
+	"math"
 )
 
 // Message Type definitions.
@@ -218,6 +219,19 @@ func (t *Transaction) UnmarshalBinary(b []byte) error {
 
 	var err error
 	var offset = 2
+
+	t.Type = Tag(b[0])
+	if b[1]&0x80 == 0 {
+		t.Length = b[1]
+	} else {
+		// Parse long form length octets.
+		// Bit 8 of first octet has value "1" and bits 7-1 give the number of additional length octets.
+		// Second and following octets give the length, base 256, most significant digit first.
+		lenOfLen := int(b[1] & 0x7f)
+		offset += lenOfLen
+		t.Length = byte(parseBase256Int(b[2 : 2+lenOfLen]))
+	}
+
 	switch t.Type.Code() {
 	case Unidirectional:
 		break
@@ -396,4 +410,17 @@ func (t *Transaction) String() string {
 		t.PAbortCause,
 		t.Payload,
 	)
+}
+
+// ByteSlice2Int converts a number base-256 encoded in a slice to an integer.
+func parseBase256Int(data []byte) int {
+	var res int
+	exp := float64(len(data) - 1)
+
+	for i := 0; i < len(data); i++ {
+		res = res + int(math.Exp2(8*exp)*float64(data[i]))
+		exp--
+	}
+
+	return res
 }
